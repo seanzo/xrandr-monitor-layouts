@@ -5,7 +5,7 @@
 set -euo pipefail
 
 # Get the directory where this script is located
-SCRIPT_DIR="$(dirname "$0")"
+SCRIPT_DIR="$(dirname $(realpath "$0"))"
 
 # Configuration
 LAYOUTS_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/xrandr-monitor-layouts"
