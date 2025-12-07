@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+# monitor-layout - Unified interface for managing X11 monitor layouts
+# Usage: monitor-layout <save|restore> <layout-name>
+
+set -euo pipefail
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(dirname "$0")"
+
+# Configuration
+LAYOUTS_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/xrandr-monitor-layouts"
+SAVE_SCRIPT="$SCRIPT_DIR/save-monitor-state.sh"
+RESTORE_SCRIPT="$SCRIPT_DIR/restore-monitor-state.sh"
+
+check_dependencies() {
+    if ! command -v xrandr >/dev/null 2>&1; then
+        echo "Error: xrandr not found. This utility requires X11 with xrandr." >&2
+        exit 1
+    fi
+
+    if [ ! -f "$SAVE_SCRIPT" ]; then
+        echo "Error: save-monitor-state.sh not found at $SAVE_SCRIPT" >&2
+        exit 1
+    fi
+
+    if [ ! -f "$RESTORE_SCRIPT" ]; then
+        echo "Error: restore-monitor-state.sh not found at $RESTORE_SCRIPT" >&2
+        exit 1
+    fi
+}
+
+show_usage() {
+    cat << EOF
+Usage: $0 <list|save|restore> <layout-name>
+
+Commands:
+  list                  List available layouts
+  save <layout-name>    Save current monitor configuration to a layout file
+  restore <layout-name> Restore monitor configuration from a layout file
+
+Examples:
+  $0 list                  # List available layouts
+  $0 save home-office      # Save current layout as 'home-office'
+  $0 restore dual-monitor  # Restore 'dual-monitor' layout
+
+Layout files are stored in: $LAYOUTS_DIR
+EOF
+}
+
+# Create layouts directory
+mkdir -p "$LAYOUTS_DIR"
+
+# Main script logic
+if [ $# -lt 1 ]; then
+    show_usage
+    exit 1
+fi
+
+COMMAND="$1"
+
+check_dependencies
+
+case "$COMMAND" in
+    list)
+        echo "Available layouts:"
+        ls "$LAYOUTS_DIR" 2>/dev/null | sed 's/^/  /' || echo "  No layouts found"
+        ;;
+
+    save)
+        LAYOUT_NAME="$2"
+        LAYOUT_FILE="$LAYOUTS_DIR/$LAYOUT_NAME"
+
+        echo "Saving current monitor layout to: $LAYOUT_NAME"
+        "$SAVE_SCRIPT" "$LAYOUT_NAME"
+        if [ $? -eq 0 ]; then
+            echo "Layout '$LAYOUT_NAME' saved successfully to $LAYOUT_FILE"
+        else
+            echo "Error: Failed to save layout '$LAYOUT_NAME'" >&2
+            exit 1
+        fi
+        ;;
+
+    restore)
+        LAYOUT_NAME="$2"
+        LAYOUT_FILE="$LAYOUTS_DIR/$LAYOUT_NAME"
+
+        if [ ! -f "$LAYOUT_FILE" ]; then
+            echo "Error: Layout '$LAYOUT_NAME' not found at $LAYOUT_FILE" >&2
+            echo "Available layouts:"
+            ls "$LAYOUTS_DIR" 2>/dev/null | sed 's/^/  /' || echo "  No layouts found"
+            exit 1
+        fi
+
+        echo "Restoring monitor layout from: $LAYOUT_NAME"
+        "$RESTORE_SCRIPT" "$LAYOUT_NAME"
+        if [ $? -eq 0 ]; then
+            echo "Layout '$LAYOUT_NAME' restored successfully"
+        else
+            echo "Error: Failed to restore layout '$LAYOUT_NAME'" >&2
+            exit 1
+        fi
+        ;;
+
+    *)
+        echo "Error: Unknown command '$COMMAND'" >&2
+        show_usage
+        exit 1
+        ;;
+esac
